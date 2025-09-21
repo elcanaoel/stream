@@ -8,7 +8,7 @@
     "server": "cd src/server && nodemon server.js",
     "client": "cd src/client && npm start",
     "build": "cd src/client && npm run build",
-    "start": "node src/server/server.js"
+    "start": "node index.js"
   },
   "keywords": [
     "torrent",

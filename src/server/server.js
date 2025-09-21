@@ -8,11 +8,13 @@ const crypto = require('crypto');
 
 const app = express();
 const client = new WebTorrent();
+// Use PORT provided by Vercel or default to 5000
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, '../client/build')));
 
 // Store active torrents
@@ -123,13 +125,46 @@ app.post('/api/add-torrent', (req, res) => {
   });
 });
 
-// Get torrent info
-app.get('/api/torrent/:infoHash', (req, res) => {
+// Get torrent info - enhanced to re-add torrents from history if needed
+app.get('/api/torrent/:infoHash', async (req, res) => {
   const { infoHash } = req.params;
-  const torrent = client.get(infoHash);
+  let torrent = client.get(infoHash);
   
+  // If torrent is not found in active torrents, try to re-add it from history
   if (!torrent) {
-    return res.status(404).json({ error: 'Torrent not found' });
+    // Look for the torrent in history
+    const historyItem = torrentHistory.find(item => item.infoHash === infoHash);
+    
+    if (historyItem) {
+      // Try to re-add the torrent using a magnet URI
+      // We'll create a basic magnet URI from the infoHash
+      const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
+      
+      try {
+        // Add the torrent
+        torrent = await new Promise((resolve, reject) => {
+          client.add(magnetURI, (newTorrent) => {
+            console.log('Re-added torrent from history:', newTorrent.infoHash);
+            
+            // Store torrent reference
+            activeTorrents.set(magnetURI, newTorrent);
+            
+            // Handle torrent errors
+            newTorrent.on('error', (err) => {
+              console.error('Re-added torrent error:', err);
+              activeTorrents.delete(magnetURI);
+            });
+            
+            resolve(newTorrent);
+          }).on('error', reject);
+        });
+      } catch (err) {
+        console.error('Failed to re-add torrent:', err);
+        return res.status(500).json({ error: 'Failed to re-add torrent: ' + err.message });
+      }
+    } else {
+      return res.status(404).json({ error: 'Torrent not found' });
+    }
   }
   
   res.json({
@@ -253,8 +288,13 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`VLC streaming endpoint: http://localhost:${PORT}/api/stream/{infoHash}/{fileIndex}`);
-});
+// Export the app for Vercel
+module.exports = app;
+
+// Only start the server if this file is the main module (not imported)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`VLC streaming endpoint: http://localhost:${PORT}/api/stream/{infoHash}/{fileIndex}`);
+  });
+}

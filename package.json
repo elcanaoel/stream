@@ -1,0 +1,31 @@
+{
+  "name": "torrent-streaming-site",
+  "version": "1.0.0",
+  "description": "A torrent download and streaming site",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd src/server && nodemon server.js",
+    "client": "cd src/client && npm start",
+    "build": "cd src/client && npm run build",
+    "start": "node src/server/server.js"
+  },
+  "keywords": [
+    "torrent",
+    "streaming",
+    "magnet",
+    "webtorrent"
+  ],
+  "author": "Joel Enejo",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "webtorrent": "^1.9.6",
+    "cors": "^2.8.5",
+    "axios": "^1.4.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.0.1"
+  }
+}
